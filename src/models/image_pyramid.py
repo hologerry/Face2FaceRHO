@@ -1,6 +1,7 @@
 import torch
-from torch import nn
 import torch.nn.functional as F
+
+from torch import nn
 
 
 class AntiAliasInterpolation2d(nn.Module):
@@ -50,9 +51,9 @@ class AntiAliasInterpolation2d(nn.Module):
         return out
 
 
-class ImagePyramide(torch.nn.Module):
+class ImagePyramid(torch.nn.Module):
     def __init__(self, scales, num_channels):
-        super(ImagePyramide, self).__init__()
+        super(ImagePyramid, self).__init__()
         downs = {}
         for scale in scales:
             downs[str(scale).replace('.', '-')] = AntiAliasInterpolation2d(num_channels, scale)

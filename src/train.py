@@ -1,26 +1,27 @@
 import argparse
+import os
 import time
-from options.parse_config import Face2FaceRHOConfigParse
+
 from dataset import CreateDataLoader
 from models import create_model
+from options.parse_config import Face2FaceRHOConfigParse
 from util.visualizer import Visualizer
-import os
 
 
 def parse_args():
     """Configurations."""
-    parser = argparse.ArgumentParser(description='training process of Face2FaceRHO')
-    parser.add_argument('--config', type=str, required=True, help='.ini config file name')
+    parser = argparse.ArgumentParser(description="training process of Face2FaceRHO")
+    parser.add_argument("--config", type=str, required=True, help=".ini config file name")
     return _check_args(parser.parse_args())
 
 
 def _check_args(args):
     if args is None:
-        raise RuntimeError('Invalid arguments!')
+        raise RuntimeError("Invalid arguments!")
     return args
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print(os.getcwd())
     args = parse_args()
     config_parse = Face2FaceRHOConfigParse()
@@ -30,7 +31,7 @@ if __name__ == '__main__':
     data_loader = CreateDataLoader(opt)
     dataset = data_loader.load_data()
     dataset_size = len(data_loader)
-    print('#training images = %d' % dataset_size)
+    print("#training images = %d" % dataset_size)
 
     model = create_model(opt)
     model.setup(opt)
@@ -74,17 +75,19 @@ if __name__ == '__main__':
 
             if total_steps // opt.save_latest_freq > save_latest_inter:
                 save_latest_inter = total_steps // opt.save_latest_freq
-                print('saving the latest model (epoch %d, total_steps %d)' % (epoch, total_steps))
+                print("saving the latest model (epoch %d, total_steps %d)" % (epoch, total_steps))
                 # model.save_networks('latest')
-                save_suffix = 'iter_%d' % total_steps
+                save_suffix = "iter_%d" % total_steps
                 model.save_networks(save_suffix)
 
             iter_data_time = time.time()
         if epoch % opt.save_epoch_freq == 0:
-            print('saving the model at the end of epoch %d, iters %d' % (epoch, total_steps))
-            model.save_networks('latest')
+            print("saving the model at the end of epoch %d, iters %d" % (epoch, total_steps))
+            model.save_networks("latest")
             model.save_networks(epoch)
 
-        print('End of epoch %d / %d \t Time Taken: %d sec' %
-              (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
+        print(
+            "End of epoch %d / %d \t Time Taken: %d sec"
+            % (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time)
+        )
         model.update_learning_rate()

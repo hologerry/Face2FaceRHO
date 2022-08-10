@@ -1,6 +1,7 @@
-from torch import nn
-import torch.nn.functional as F
 import torch
+import torch.nn.functional as F
+
+from torch import nn
 
 
 class DownBlock2d(nn.Module):
@@ -43,9 +44,15 @@ class Discriminator(nn.Module):
         down_blocks = []
         for i in range(num_blocks):
             down_blocks.append(
-                DownBlock2d(num_channels + 3 * use_kp if i == 0 else min(max_features, block_expansion * (2 ** i)),
-                            min(max_features, block_expansion * (2 ** (i + 1))),
-                            norm=(i != 0), kernel_size=4, pool=(i != num_blocks - 1), sn=sn))
+                DownBlock2d(
+                    num_channels + 3 * use_kp if i == 0 else min(max_features, block_expansion * (2**i)),
+                    min(max_features, block_expansion * (2 ** (i + 1))),
+                    norm=(i != 0),
+                    kernel_size=4,
+                    pool=(i != num_blocks - 1),
+                    sn=sn,
+                )
+            )
 
         self.down_blocks = nn.ModuleList(down_blocks)
         self.conv = nn.Conv2d(self.down_blocks[-1].conv.out_channels, out_channels=1, kernel_size=1)
@@ -60,7 +67,7 @@ class Discriminator(nn.Module):
             bs, _, h1, w1 = kp.shape
             bs, C, h2, w2 = out.shape
             if h1 != h2 or w1 != w2:
-                kp = F.interpolate(kp, size=(h2, w2), mode='bilinear')
+                kp = F.interpolate(kp, size=(h2, w2), mode="bilinear")
             out = torch.cat([out, kp], dim=1)
 
         for down_block in self.down_blocks:
@@ -81,15 +88,15 @@ class MultiScaleDiscriminator(nn.Module):
         self.scales = scales
         discs = {}
         for scale in scales:
-            discs[str(scale).replace('.', '-')] = Discriminator(**kwargs)
+            discs[str(scale).replace(".", "-")] = Discriminator(**kwargs)
         self.discs = nn.ModuleDict(discs)
 
     def forward(self, x, kp=None):
         out_dict = {}
         for scale, disc in self.discs.items():
-            scale = str(scale).replace('-', '.')
-            key = 'prediction_' + scale
+            scale = str(scale).replace("-", ".")
+            key = "prediction_" + scale
             feature_maps, prediction_map = disc(x[key], kp)
-            out_dict['feature_maps_' + scale] = feature_maps
-            out_dict['prediction_map_' + scale] = prediction_map
+            out_dict["feature_maps_" + scale] = feature_maps
+            out_dict["prediction_map_" + scale] = prediction_map
         return out_dict

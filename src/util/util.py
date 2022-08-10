@@ -1,9 +1,11 @@
-import numpy as np
-from PIL import Image
 import os
-import torchvision.transforms as transforms
-import torch
+
 import cv2
+import numpy as np
+import torch
+import torchvision.transforms as transforms
+
+from PIL import Image
 
 
 def make_ids(path):
@@ -34,9 +36,9 @@ def load_coeffs(input_file_name):
 
 def load_landmarks(file_name):
     landmarks = []
-    file = open(file_name, 'r')
+    file = open(file_name, "r")
     for line in file:
-        s1 = line.split(' ')
+        s1 = line.split(" ")
         landmarks.append([float(s1[0]), float(s1[1])])
     file.close()
     return landmarks
@@ -70,7 +72,7 @@ def tensor2im(input_image, imtype=np.uint8, bs=0):
 
 def show_mask(mask, bs=0):
     image_tensor = mask.data
-    image_tensor = image_tensor[bs:bs+1, ...].cpu()
+    image_tensor = image_tensor[bs : bs + 1, ...].cpu()
     mask_image = torch.ones(image_tensor.shape, dtype=torch.float32)
     mask_image = torch.where(image_tensor, torch.ones_like(mask_image), torch.zeros_like(mask_image))
     mask_image = mask_image.cpu().squeeze(0).numpy()
@@ -108,3 +110,10 @@ def save_landmarks(output_file_name, landmarks):
     with open(output_file_name, "w") as f:
         for landmark in landmarks:
             f.write(str(landmark[0]) + " " + str(landmark[1]) + "\n")
+
+
+def save_params(out_file_name, params):
+    with open(out_file_name, "w") as f:
+        for k, v in params.items():
+            f.write(f"{k}\n")
+            f.write(f"{v}\n\n")

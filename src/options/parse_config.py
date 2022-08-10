@@ -1,11 +1,14 @@
 import configparser
-from util import util
 import os
-import torch
+
 from abc import ABC
 
+import torch
 
-class Options():
+from util import util
+
+
+class Options:
     def __init__(self):
         pass
 
@@ -21,7 +24,7 @@ def _get_value_from_ini(conf, section, option, type=str, default=None):
 
 
 def str2ids(input_str):
-    str_ids = input_str.split(',')
+    str_ids = input_str.split(",")
     ids = []
     for str_id in str_ids:
         id = int(str_id)
@@ -31,7 +34,7 @@ def str2ids(input_str):
 
 
 def str2floats(input_str):
-    str_ids = input_str.split(',')
+    str_ids = input_str.split(",")
     ids = []
     for str_id in str_ids:
         id = float(str_id)
@@ -41,7 +44,7 @@ def str2floats(input_str):
 
 
 def str2ints(input_str):
-    str_ids = input_str.split(',')
+    str_ids = input_str.split(",")
     ids = []
     for str_id in str_ids:
         id = int(str_id)
@@ -61,20 +64,20 @@ class ConfigParse(ABC):
 
     def setup_environment(self):
         # print options
-        message = ''
-        message += '----------------- Options ---------------\n'
+        message = ""
+        message += "----------------- Options ---------------\n"
         for k, v in vars(self.opt).items():
-            message += '{:>25}: {:<30}\n'.format(str(k), str(v))
-        message += '----------------- End -------------------'
+            message += "{:>25}: {:<30}\n".format(str(k), str(v))
+        message += "----------------- End -------------------"
         print(message)
 
         # save to the disk
         expr_dir = os.path.join(self.opt.checkpoints_dir, self.opt.name)
         util.mkdirs(expr_dir)
-        file_name = os.path.join(expr_dir, '{}_opt.txt'.format(self.opt.phase))
-        with open(file_name, 'wt') as opt_file:
+        file_name = os.path.join(expr_dir, "{}_opt.txt".format(self.opt.phase))
+        with open(file_name, "wt") as opt_file:
             opt_file.write(message)
-            opt_file.write('\n')
+            opt_file.write("\n")
 
         # set gpu ids
         if len(self.opt.gpu_ids) > 0:
@@ -82,11 +85,11 @@ class ConfigParse(ABC):
 
     def setup_test_environment(self):
         # print options
-        message = ''
-        message += '----------------- Options ---------------\n'
+        message = ""
+        message += "----------------- Options ---------------\n"
         for k, v in vars(self.opt).items():
-            message += '{:>25}: {:<30}\n'.format(str(k), str(v))
-        message += '----------------- End -------------------'
+            message += "{:>25}: {:<30}\n".format(str(k), str(v))
+        message += "----------------- End -------------------"
         print(message)
 
         # set gpu ids
@@ -108,7 +111,7 @@ class Face2FaceRHOConfigParse(ConfigParse):
         opt.checkpoints_dir = self.conf.get("ROOT", "checkpoints_dir")
         opt.model = self.conf.get("ROOT", "model")
         opt.output_size = int(self.conf.get("ROOT", "output_size"))
-        opt.isTrain = self.conf.get("ROOT", "isTrain") == 'True'
+        opt.isTrain = self.conf.get("ROOT", "isTrain") == "True"
         opt.phase = self.conf.get("ROOT", "phase")
         opt.load_iter = int(self.conf.get("ROOT", "load_iter"))
         opt.epoch = int(self.conf.get("ROOT", "epoch"))
@@ -144,7 +147,7 @@ class Face2FaceRHOConfigParse(ConfigParse):
         # training parameters
         opt.init_type = self.conf.get("ROOT", "init_type")
         opt.init_gain = float(self.conf.get("ROOT", "init_gain"))
-        opt.emphasize_face_area = self.conf.get("ROOT", "emphasize_face_area") == 'True'
+        opt.emphasize_face_area = self.conf.get("ROOT", "emphasize_face_area") == "True"
         opt.loss_scales = self.conf.get("ROOT", "loss_scales")
         opt.loss_scales = str2floats(opt.loss_scales)
         opt.warp_loss_weight = float(self.conf.get("ROOT", "warp_loss_weight"))
@@ -158,14 +161,14 @@ class Face2FaceRHOConfigParse(ConfigParse):
         opt.epoch_count = int(self.conf.get("ROOT", "epoch_count"))
         opt.niter = int(self.conf.get("ROOT", "niter"))
         opt.niter_decay = int(self.conf.get("ROOT", "niter_decay"))
-        opt.continue_train = self.conf.get("ROOT", "continue_train") == 'True'
+        opt.continue_train = self.conf.get("ROOT", "continue_train") == "True"
 
         # dataset parameters
         opt.dataset_mode = self.conf.get("ROOT", "dataset_mode")
         opt.dataroot = self.conf.get("ROOT", "dataroot")
         opt.num_repeats = int(self.conf.get("ROOT", "num_repeats"))
         opt.batch_size = int(self.conf.get("ROOT", "batch_size"))
-        opt.serial_batches = self.conf.get("ROOT", "serial_batches") == 'True'
+        opt.serial_batches = self.conf.get("ROOT", "serial_batches") == "True"
         opt.num_threads = int(self.conf.get("ROOT", "num_threads"))
         opt.max_dataset_size = float("inf")
 
@@ -182,7 +185,6 @@ class Face2FaceRHOConfigParse(ConfigParse):
         opt.no_html = self.conf.get("ROOT", "no_html") == str(True)
         opt.display_winsize = int(self.conf.get("ROOT", "display_winsize"))
         opt.display_ncols = int(self.conf.get("ROOT", "display_ncols"))
-        opt.verbose = self.conf.get("ROOT", "verbose") == 'True'
+        opt.verbose = self.conf.get("ROOT", "verbose") == "True"
         self.opt = opt
         return self.opt
-

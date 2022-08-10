@@ -1,5 +1,7 @@
 import importlib
+
 import torch.utils.data
+
 from dataset.base_data_loader import BaseDataLoader
 from dataset.base_dataset import BaseDataset
 
@@ -15,14 +17,16 @@ def find_dataset_using_name(dataset_name):
     # be instantiated. It has to be a subclass of BaseDataset,
     # and it is case-insensitive.
     dataset = None
-    target_dataset_name = dataset_name.replace('_', '') + 'dataset'
+    target_dataset_name = dataset_name.replace("_", "") + "dataset"
     for name, cls in datasetlib.__dict__.items():
-        if name.lower() == target_dataset_name.lower() \
-           and issubclass(cls, BaseDataset):
+        if name.lower() == target_dataset_name.lower() and issubclass(cls, BaseDataset):
             dataset = cls
 
     if dataset is None:
-        print("In %s.py, there should be a subclass of BaseDataset with class name that matches %s in lowercase." % (dataset_filename, target_dataset_name))
+        print(
+            "In %s.py, there should be a subclass of BaseDataset with class name that matches %s in lowercase."
+            % (dataset_filename, target_dataset_name)
+        )
         exit(0)
 
     return dataset
@@ -51,19 +55,17 @@ def CreateDataLoader(opt):
 # multi-threaded data loading
 class CustomDatasetDataLoader(BaseDataLoader):
     def name(self):
-        return 'CustomDatasetDataLoader'
+        return "CustomDatasetDataLoader"
 
     def initialize(self, opt):
         BaseDataLoader.initialize(self, opt)
         self.dataset = create_dataset(opt)
         if opt.serial_batches:
             self.dataloader = torch.utils.data.DataLoader(
-                self.dataset,
-                batch_size=opt.batch_size,
-                shuffle=False,
-                num_workers=int(opt.num_threads))
+                self.dataset, batch_size=opt.batch_size, shuffle=False, num_workers=int(opt.num_threads)
+            )
         else:
-            #weights = make_weights_for_balanced_classes(dataset_train.imgs, len(dataset_train.classes))
+            # weights = make_weights_for_balanced_classes(dataset_train.imgs, len(dataset_train.classes))
             # weights = self.dataset.getSampleWeights()
             # weights = torch.DoubleTensor(weights)
             # sampler = torch.utils.data.sampler.WeightedRandomSampler(weights, len(weights))
@@ -74,8 +76,8 @@ class CustomDatasetDataLoader(BaseDataLoader):
                 shuffle=True,
                 # sampler=sampler,
                 # pin_memory=True,
-                num_workers=int(opt.num_threads))
-            
+                num_workers=int(opt.num_threads),
+            )
 
     def load_data(self):
         return self
