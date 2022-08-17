@@ -71,14 +71,17 @@ class ResBlock(nn.Module):
 
 
 class MotionNet(nn.Module):
-    def __init__(self, opt):
+    def __init__(self, mn_ngf=16, n_local_enhancers=2, mn_n_downsampling=2, mn_n_blocks_local=3):
         super(MotionNet, self).__init__()
 
-        ngf = opt.mn_ngf
-        n_local_enhancers = opt.n_local_enhancers
-        n_downsampling = opt.mn_n_downsampling
-        n_blocks_local = opt.mn_n_blocks_local
-
+        # ngf = opt.mn_ngf
+        # n_local_enhancers = opt.n_local_enhancers
+        # n_downsampling = opt.mn_n_downsampling
+        # n_blocks_local = opt.mn_n_blocks_local
+        ngf = mn_ngf
+        n_local_enhancers = n_local_enhancers
+        n_downsampling = mn_n_downsampling
+        n_blocks_local = mn_n_blocks_local
         in_features = [9, 9, 9]
 
         # F1
@@ -133,20 +136,42 @@ class MotionNet(nn.Module):
 
     def forward(self, input1, input2, input3):
         ### output at small scale(f1)
-        output_prev = self.f1_model(input1)
-        low_motion = self.f1_motion(output_prev)
+        output_prev = self.f1_model(input1)  # 32, 32 -> 16, 16 -> 8, 8 -> 16, 16 -> 32, 32
+        low_motion = self.f1_motion(output_prev)  # channel 64 -> 2
 
         ### output at middle scale(f2)
-        output_prev = self.model1_2(self.model1_1(input2) + output_prev)
-        middle_motion = self.model1_3(output_prev)
-        middle_motion = middle_motion + nn.Upsample(scale_factor=2, mode="nearest")(low_motion)
+        output_prev = self.model1_2(self.model1_1(input2) + output_prev)  # 64, 64 -> 32, 32 + 32, 32 -> 16, 16 -> 8, 8 -> 8, 8 -> 16, 16 -> 32, 32 -> 64, 64
+        middle_motion = self.model1_3(output_prev)  # channel 64 -> 2
+        middle_motion = middle_motion + nn.Upsample(scale_factor=2, mode="nearest")(low_motion)  # 64, 64 + (32, 32) x 2
 
         ### output at large scale(f3)
-        output_prev = self.model2_2(self.model2_1(input3) + output_prev)
-        high_motion = self.model2_3(output_prev)
-        high_motion = high_motion + nn.Upsample(scale_factor=2, mode="nearest")(middle_motion)
+        output_prev = self.model2_2(self.model2_1(input3) + output_prev)  # 128, 128 -> 64, 64 + 64, 64 -> 32, 32 -> 16, 16 -> 16, 16 -> 32, 32 -> 64, 64 -> 128, 128
+        high_motion = self.model2_3(output_prev)  # channel 64 -> 2
+        high_motion = high_motion + nn.Upsample(scale_factor=2, mode="nearest")(middle_motion)  # 128, 128 + (64, 64) x 2
 
         low_motion = low_motion.permute(0, 2, 3, 1)
         middle_motion = middle_motion.permute(0, 2, 3, 1)
         high_motion = high_motion.permute(0, 2, 3, 1)
         return [low_motion, middle_motion, high_motion]
+
+
+if __name__ == "__main__":
+    import torch
+
+    from torch.profiler import ProfilerActivity, profile, record_function
+
+    input1 = torch.rand((1, 9, 32, 32)).cuda()
+    input2 = torch.rand((1, 9, 64, 64)).cuda()
+    input3 = torch.rand((1, 9, 128, 128)).cuda()
+
+    model = MotionNet().cuda()
+    print(model)
+    with torch.no_grad():
+        with profile(activities=[ProfilerActivity.CUDA]) as prof:
+            with record_function("model_inference"):
+                for _ in range(1):
+                    out = model(input1, input2, input3)
+        print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=2))
+    print("return out 0 shape", out[0].shape)
+    print("return out 1 shape", out[1].shape)
+    print("return out 2 shape", out[2].shape)

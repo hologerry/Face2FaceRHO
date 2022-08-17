@@ -84,10 +84,7 @@ class SPADE(nn.Module):
 
         nhidden = label_nc * 2
 
-        self.mlp_shared = nn.Sequential(
-            nn.Conv2d(label_nc, nhidden, kernel_size=3, padding=1),
-            nn.ReLU()
-        )
+        self.mlp_shared = nn.Sequential(nn.Conv2d(label_nc, nhidden, kernel_size=3, padding=1), nn.ReLU())
         self.mlp_gamma = nn.Conv2d(nhidden, input_channel, kernel_size=3, padding=1)
         self.mlp_beta = nn.Conv2d(nhidden, input_channel, kernel_size=3, padding=1)
 
@@ -98,7 +95,7 @@ class SPADE(nn.Module):
         _, c1, h1, w1 = x.size()
         _, c2, h2, w2 = condition_map.size()
         if h1 != h2 or w1 != w2:
-            raise ValueError('x and condition_map have different sizes.')
+            raise ValueError("x and condition_map have different sizes.")
         actv = self.mlp_shared(condition_map)
         gamma = self.mlp_gamma(actv)
         beta = self.mlp_beta(actv)
@@ -108,13 +105,29 @@ class SPADE(nn.Module):
 
 
 class RenderingNet(nn.Module):
-    def __init__(self, opt):
-        super(RenderingNet, self).__init__()
+    def __init__(
+        self,
+        mobilev2_encoder_channels=[16,8,12,28,64,72,140,280],
+        mobilev2_decoder_channels=[16,8,14,24,64,96,140,280],
+        mobilev2_encoder_layers=[1,2,2,2,2,2,1],
+        mobilev2_decoder_layers=[1,2,2,2,2,2,1],
+        mobilev2_encoder_expansion_factor=[1,6,6,6,6,6,6],
+        mobilev2_decoder_expansion_factor=[1,6,6,6,6,6,6],
+        headpose_dims=6,
+        headpose_embedding_ngf=8,
+    ):
+        super().__init__()
+        en_channels = mobilev2_encoder_channels
+        de_channels = mobilev2_decoder_channels
+        en_layers = mobilev2_encoder_layers
+        de_layers = mobilev2_decoder_layers
+        en_expansion_factor = mobilev2_encoder_expansion_factor
+        de_expansion_factor = mobilev2_decoder_expansion_factor
 
-        self.src_headpose_encoder = PoseEncoder(headpose_dims=opt.headpose_dims, ngf=opt.headpose_embedding_ngf)
+        self.src_headpose_encoder = PoseEncoder(headpose_dims=headpose_dims, ngf=headpose_embedding_ngf)
         self.headpose_feature_cn = self.src_headpose_encoder.get_embedding_feature_map_channel()
 
-        self.drv_headpose_encoder = PoseEncoder(headpose_dims=opt.headpose_dims, ngf=opt.headpose_embedding_ngf)
+        self.drv_headpose_encoder = PoseEncoder(headpose_dims=headpose_dims, ngf=headpose_embedding_ngf)
 
         norm = nn.BatchNorm2d
 
@@ -128,9 +141,17 @@ class RenderingNet(nn.Module):
                     if n > 1:
                         model.append(InvertedResidual(input_channel, output_channel, s, expand_ratio=t))
                     else:
-                        model.append(InvertedResidual(input_channel, output_channel, s, expand_ratio=t, final_use_norm=final_use_norm))
+                        model.append(
+                            InvertedResidual(
+                                input_channel, output_channel, s, expand_ratio=t, final_use_norm=final_use_norm
+                            )
+                        )
                 else:
-                    model.append(InvertedResidual(input_channel, output_channel, 1, expand_ratio=t, final_use_norm=final_use_norm))
+                    model.append(
+                        InvertedResidual(
+                            input_channel, output_channel, 1, expand_ratio=t, final_use_norm=final_use_norm
+                        )
+                    )
                 input_channel = output_channel
 
             return nn.Sequential(nn.Sequential(*model))
@@ -141,19 +162,14 @@ class RenderingNet(nn.Module):
             input_channel = int(inc)
             output_channel = int(ouc)
             for i in range(n):
-                model.append(InvertedResidual(input_channel, output_channel, 1, expand_ratio=t, final_use_norm=final_use_norm))
+                model.append(
+                    InvertedResidual(input_channel, output_channel, 1, expand_ratio=t, final_use_norm=final_use_norm)
+                )
                 input_channel = output_channel
             if s == 2:
-                model.append(nn.Upsample(scale_factor=2, mode='nearest'))
+                model.append(nn.Upsample(scale_factor=2, mode="nearest"))
 
             return nn.Sequential(nn.Sequential(*model))
-
-        en_channels = opt.mobilev2_encoder_channels
-        de_channels = opt.mobilev2_decoder_channels
-        en_layers = opt.mobilev2_encoder_layers
-        de_layers = opt.mobilev2_decoder_layers
-        en_expansion_factor = opt.mobilev2_encoder_expansion_factor
-        de_expansion_factor = opt.mobilev2_decoder_expansion_factor
 
         self.en_conv_block = nn.Sequential(
             nn.Conv2d(in_channels=3, out_channels=en_channels[0], kernel_size=3, stride=1, padding=1, bias=False),
@@ -164,8 +180,14 @@ class RenderingNet(nn.Module):
         self.en_down_block1 = nn.Sequential(
             encoder_block(t=en_expansion_factor[0], ouc=en_channels[1], n=en_layers[0], s=1, inc=en_channels[0]),
             encoder_block(t=en_expansion_factor[1], ouc=en_channels[2], n=en_layers[1], s=2, inc=en_channels[1]),
-            encoder_block(t=en_expansion_factor[2], ouc=en_channels[3], n=en_layers[2], s=2, inc=en_channels[2],
-                          final_use_norm=False),
+            encoder_block(
+                t=en_expansion_factor[2],
+                ouc=en_channels[3],
+                n=en_layers[2],
+                s=2,
+                inc=en_channels[2],
+                final_use_norm=False,
+            ),
         )
 
         self.en_SPADE1 = SPADE(en_channels[3], self.headpose_feature_cn)
@@ -173,64 +195,90 @@ class RenderingNet(nn.Module):
 
         self.en_down_block2 = nn.Sequential(
             encoder_block(t=en_expansion_factor[3], ouc=en_channels[4], n=en_layers[3], s=2, inc=en_channels[3]),
-            encoder_block(t=en_expansion_factor[4], ouc=en_channels[5], n=en_layers[4], s=1, inc=en_channels[4],
-                          final_use_norm=False),
+            encoder_block(
+                t=en_expansion_factor[4],
+                ouc=en_channels[5],
+                n=en_layers[4],
+                s=1,
+                inc=en_channels[4],
+                final_use_norm=False,
+            ),
         )
 
         self.en_SPADE_2 = SPADE(en_channels[5], self.headpose_feature_cn)
         self.en_SPADE_2_act = nn.ReLU(True)
 
         self.en_down_block3 = nn.Sequential(
-            encoder_block(t=en_expansion_factor[5], ouc=en_channels[6], n=en_layers[5], s=2, inc=en_channels[5],
-                          final_use_norm=False),
+            encoder_block(
+                t=en_expansion_factor[5],
+                ouc=en_channels[6],
+                n=en_layers[5],
+                s=2,
+                inc=en_channels[5],
+                final_use_norm=False,
+            ),
         )
 
         self.en_SPADE_3 = SPADE(en_channels[6], self.headpose_feature_cn)
         self.en_SPADE_3_act = nn.ReLU(True)
 
         self.en_res_block = nn.Sequential(
-            encoder_block(t=en_expansion_factor[6], ouc=en_channels[7], n=en_layers[6], s=1, inc=en_channels[6],
-                          final_use_norm=False),
+            encoder_block(
+                t=en_expansion_factor[6],
+                ouc=en_channels[7],
+                n=en_layers[6],
+                s=1,
+                inc=en_channels[6],
+                final_use_norm=False,
+            ),
         )
 
         self.en_SPADE_4 = SPADE(en_channels[7], self.headpose_feature_cn)
         self.en_SPADE_4_act = nn.ReLU(True)
 
-
         self.de_SPADE_1 = SPADE(de_channels[7], self.headpose_feature_cn)
         self.de_SPADE_1_act = nn.ReLU(True)
         self.de_res_block = nn.Sequential(
-            decoder_block(t=de_expansion_factor[6], ouc=de_channels[6], n=de_layers[6], s=1, inc=en_channels[7],
-                          final_use_norm=False)
+            decoder_block(
+                t=de_expansion_factor[6],
+                ouc=de_channels[6],
+                n=de_layers[6],
+                s=1,
+                inc=en_channels[7],
+                final_use_norm=False,
+            )
         )
 
         self.de_SPADE_2 = SPADE(de_channels[6] + en_channels[6], self.headpose_feature_cn)
         self.de_SPADE_2_act = nn.ReLU(True)
         self.de_up_block1 = nn.Sequential(
-            decoder_block(t=de_expansion_factor[5], ouc=de_channels[5], n=de_layers[5], s=2,
-                          inc=de_channels[6] + en_channels[6]),
+            decoder_block(
+                t=de_expansion_factor[5], ouc=de_channels[5], n=de_layers[5], s=2, inc=de_channels[6] + en_channels[6]
+            ),
         )
 
         self.de_SPADE_3 = SPADE(de_channels[5] + en_channels[5], self.headpose_feature_cn)
         self.de_SPADE_3_act = nn.ReLU(True)
         self.de_up_block2 = nn.Sequential(
-            decoder_block(t=de_expansion_factor[4], ouc=de_channels[4], n=de_layers[4], s=1,
-                          inc=de_channels[5] + en_channels[5]),
+            decoder_block(
+                t=de_expansion_factor[4], ouc=de_channels[4], n=de_layers[4], s=1, inc=de_channels[5] + en_channels[5]
+            ),
             decoder_block(t=de_expansion_factor[3], ouc=de_channels[3], n=de_layers[3], s=2, inc=de_channels[4]),
         )
 
         self.de_SPADE_4 = SPADE(de_channels[3] + en_channels[3], self.headpose_feature_cn)
         self.de_SPADE_4_act = nn.ReLU(True)
         self.de_up_block3 = nn.Sequential(
-            decoder_block(t=de_expansion_factor[2], ouc=de_channels[2], n=de_layers[2], s=2,
-                          inc=de_channels[3] + en_channels[3]),
+            decoder_block(
+                t=de_expansion_factor[2], ouc=de_channels[2], n=de_layers[2], s=2, inc=de_channels[3] + en_channels[3]
+            ),
             decoder_block(t=de_expansion_factor[1], ouc=de_channels[1], n=de_layers[1], s=2, inc=de_channels[2]),
             decoder_block(t=de_expansion_factor[0], ouc=de_channels[0], n=de_layers[0], s=1, inc=de_channels[1]),
         )
 
         self.de_conv_block = nn.Sequential(
             nn.Conv2d(in_channels=de_channels[0], out_channels=3, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.Tanh()
+            nn.Tanh(),
         )
 
     @staticmethod
@@ -239,7 +287,7 @@ class RenderingNet(nn.Module):
         bs, c, h2, w2 = inp.shape
         if h1 != h2 or w1 != w2:
             deformation = deformation.permute(0, 3, 1, 2)
-            deformation = F.interpolate(deformation, size=(h2, w2), mode='nearest')
+            deformation = F.interpolate(deformation, size=(h2, w2), mode="nearest")
             deformation = deformation.permute(0, 2, 3, 1)
         trans_feature = F.grid_sample(inp, deformation)
         return trans_feature
@@ -249,7 +297,7 @@ class RenderingNet(nn.Module):
         bs, c, h1, w1 = inp.shape
         _, _, h2, w2 = embedding.shape
         if h1 != h2 or w1 != w2:
-            embedding = F.interpolate(embedding, size=(h1, w1), mode='nearest')
+            embedding = F.interpolate(embedding, size=(h1, w1), mode="nearest")
         return embedding
 
     def forward(self, src_img, motion_field, src_headpose, drv_headpose):
@@ -280,9 +328,11 @@ class RenderingNet(nn.Module):
         trans_features.append(RenderingNet.deform_input(x4_in, motion_field))
         trans_features.append(RenderingNet.deform_input(de_x4_in, motion_field))
 
-        #decode
+        # decode
         drv_headpose_embedding = self.drv_headpose_encoder(drv_headpose)
-        x4_in = self.de_SPADE_1(trans_features[-1], self.resize_headpose_embedding(trans_features[-1], drv_headpose_embedding))
+        x4_in = self.de_SPADE_1(
+            trans_features[-1], self.resize_headpose_embedding(trans_features[-1], drv_headpose_embedding)
+        )
         x4_in = nn.ReLU(True)(x4_in)
         x4_out = self.de_res_block(x4_in)
 
@@ -333,7 +383,9 @@ class RenderingNet(nn.Module):
 
         # decode
         drv_headpose_embeddings = self.drv_headpose_encoder(drv_headpose)
-        x4_in = self.de_SPADE_1(trans_features[-1], self.resize_headpose_embedding(trans_features[-1], drv_headpose_embeddings))
+        x4_in = self.de_SPADE_1(
+            trans_features[-1], self.resize_headpose_embedding(trans_features[-1], drv_headpose_embeddings)
+        )
         x4_in = nn.ReLU(True)(x4_in)
         x4_out = self.de_res_block(x4_in)
 
@@ -355,4 +407,22 @@ class RenderingNet(nn.Module):
         return x_out
 
 
+if __name__ == "__main__":
+    import torch
 
+    from torch.profiler import ProfilerActivity, profile, record_function
+
+    src_img = torch.rand(1, 3, 256, 256).cuda()
+    src_headpose = torch.rand(1, 6).cuda()
+    drv_headpose = torch.rand(1, 6).cuda()
+    motion_field = torch.rand(1, 128, 128, 2).cuda()
+
+    model = RenderingNet().cuda()
+    print(model)
+    with torch.no_grad():
+        with profile(activities=[ProfilerActivity.CUDA]) as prof:
+            with record_function("model_inference"):
+                for _ in range(1):
+                    out = model(src_img, motion_field, src_headpose, drv_headpose)
+        print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=2))
+    print("return out shape", out.shape)
